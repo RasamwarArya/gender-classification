@@ -26,11 +26,22 @@ try:
         model = joblib.load(MODEL_PATH)
         print(f"Model loaded successfully from {MODEL_PATH}")
     else:
-        print(f"Warning: Model file not found at {MODEL_PATH}")
-        print(f"Looking for model in: {DATA_DIR / 'models'}")
-        model = None
+        # Try from current working directory (repo root)
+        alt_path = Path('data') / 'models' / 'gender_classifier.joblib'
+        if alt_path.exists():
+            MODEL_PATH = alt_path
+            model = joblib.load(MODEL_PATH)
+            print(f"Model loaded successfully from {MODEL_PATH}")
+        else:
+            print(f"Warning: Model file not found at {MODEL_PATH}")
+            print(f"Also checked: {alt_path}")
+            print(f"Current working directory: {os.getcwd()}")
+            print(f"Files in current dir: {os.listdir('.')}")
+            model = None
 except Exception as e:
+    import traceback
     print(f"Error loading model: {e}")
+    print(f"Traceback: {traceback.format_exc()}")
     model = None
 
 def extract_mfcc(audio_path, sr=16000, n_mfcc=13):
@@ -79,38 +90,63 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     """Handle audio file upload and prediction"""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if file and file.filename:
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file or not file.filename:
+            return jsonify({'error': 'Invalid file'}), 400
+        
         # Save uploaded file temporarily
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        
+        try:
+            file.save(filepath)
+        except Exception as e:
+            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
+        
+        # Check if model is loaded
+        if model is None:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            return jsonify({'error': 'Model not loaded. Please check server logs.'}), 500
         
         try:
             # Predict gender
             result, error = predict_gender_from_file(filepath)
             
+            # Clean up temporary file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            
             if error:
                 return jsonify({'error': error}), 500
             
-            # Clean up temporary file
-            os.remove(filepath)
+            if result is None:
+                return jsonify({'error': 'Prediction failed'}), 500
             
             return jsonify(result)
+            
         except Exception as e:
             # Clean up on error
             if os.path.exists(filepath):
                 os.remove(filepath)
-            return jsonify({'error': str(e)}), 500
-    
-    return jsonify({'error': 'Invalid file'}), 400
+            import traceback
+            error_msg = f'Error processing file: {str(e)}'
+            print(f'Prediction error: {traceback.format_exc()}')
+            return jsonify({'error': error_msg}), 500
+            
+    except Exception as e:
+        import traceback
+        error_msg = f'Server error: {str(e)}'
+        print(f'Server error: {traceback.format_exc()}')
+        return jsonify({'error': error_msg}), 500
 
 @app.route('/health')
 def health():
