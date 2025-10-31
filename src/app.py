@@ -12,12 +12,23 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
 # Load model
+# With Root Directory = 'src' in Render, __file__ is in src/, so we go up one level to repo root
 DATA_DIR = Path(__file__).parent.parent / 'data'
 MODEL_PATH = DATA_DIR / 'models' / 'gender_classifier.joblib'
 
+# Alternative path if above doesn't work (absolute from repo root)
+if not MODEL_PATH.exists():
+    # Try from current working directory (should be repo root in Render)
+    MODEL_PATH = Path('data') / 'models' / 'gender_classifier.joblib'
+
 try:
-    model = joblib.load(MODEL_PATH)
-    print(f"Model loaded successfully from {MODEL_PATH}")
+    if MODEL_PATH.exists():
+        model = joblib.load(MODEL_PATH)
+        print(f"Model loaded successfully from {MODEL_PATH}")
+    else:
+        print(f"Warning: Model file not found at {MODEL_PATH}")
+        print(f"Looking for model in: {DATA_DIR / 'models'}")
+        model = None
 except Exception as e:
     print(f"Error loading model: {e}")
     model = None
