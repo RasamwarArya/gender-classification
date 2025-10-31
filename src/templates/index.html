@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gender Classification from Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin-top: 15px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-info {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            background: #f8f9ff;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .gender-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .gender-male {
+            color: #667eea;
+        }
+
+        .gender-female {
+            color: #e91e63;
+        }
+
+        .confidence {
+            text-align: center;
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .confidence-value {
+            font-weight: bold;
+            font-size: 1.3em;
+            color: #333;
+        }
+
+        .probabilities {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .prob-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        .prob-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .prob-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .prob-male {
+            color: #667eea;
+        }
+
+        .prob-female {
+            color: #e91e63;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Gender Classification</h1>
+        <p class="subtitle">Upload an audio file to predict the speaker's gender</p>
+
+        <div class="upload-area" id="uploadArea">
+            <p style="font-size: 1.2em; margin-bottom: 10px;">📁 Drop audio file here</p>
+            <p style="color: #999; font-size: 0.9em;">or click to browse</p>
+            <input type="file" id="fileInput" class="file-input" accept="audio/*">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                Choose File
+            </button>
+            <div class="file-info" id="fileInfo"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing audio file...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <div class="result-title">Prediction Result</div>
+            <div class="gender-display" id="genderDisplay"></div>
+            <div class="confidence">
+                Confidence: <span class="confidence-value" id="confidence"></span>%
+            </div>
+            <div class="probabilities">
+                <div class="prob-item">
+                    <div class="prob-label">Male</div>
+                    <div class="prob-value prob-male" id="probMale">0%</div>
+                </div>
+                <div class="prob-item">
+                    <div class="prob-label">Female</div>
+                    <div class="prob-value prob-female" id="probFemale">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>Supported formats:</strong> MP3, WAV, M4A, OGG<br>
+            <strong>Max file size:</strong> 16MB<br>
+            <strong>Model accuracy:</strong> 94.26%
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const result = document.getElementById('result');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const genderDisplay = document.getElementById('genderDisplay');
+        const confidence = document.getElementById('confidence');
+        const probMale = document.getElementById('probMale');
+        const probFemale = document.getElementById('probFemale');
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            // Validate file
+            if (!file.type.startsWith('audio/')) {
+                showError('Please upload an audio file');
+                return;
+            }
+
+            if (file.size > 16 * 1024 * 1024) {
+                showError('File size must be less than 16MB');
+                return;
+            }
+
+            fileInfo.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            
+            // Hide previous results
+            result.classList.remove('show');
+            error.classList.remove('show');
+            loading.classList.add('show');
+
+            // Upload and predict
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showResult(data);
+                }
+            })
+            .catch(err => {
+                loading.classList.remove('show');
+                showError('Failed to process file: ' + err.message);
+            });
+        }
+
+        function showResult(data) {
+            genderDisplay.textContent = data.gender === 'Male' ? '👨 Male' : '👩 Female';
+            genderDisplay.className = `gender-display ${data.gender === 'Male' ? 'gender-male' : 'gender-female'}`;
+            confidence.textContent = data.confidence;
+            probMale.textContent = data.probabilities.male + '%';
+            probFemale.textContent = data.probabilities.female + '%';
+            result.classList.add('show');
+        }
+
+        function showError(message) {
+            error.textContent = 'Error: ' + message;
+            error.classList.add('show');
+        }
+    </script>
+</body>
+</html>
+

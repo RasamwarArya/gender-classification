@@ -1,0 +1,54 @@
+# Data files - Large dataset (DO NOT PUSH)
+data/raw/**/*.mp3
+data/raw/**/*.wav
+data/raw/**/*.m4a
+data/raw/**/*.ogg
+data/raw/cv-corpus-*/
+
+# Model files - Include trained model for immediate use
+# data/models/*.joblib  # Commented out - we're including the model
+# data/models/*.pkl
+!data/models/gender_classifier.joblib  # Allow this specific model file
+
+# Feature files - Can be regenerated (DO NOT PUSH)
+data/*.npz
+data/*.npy
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.log
+*.temp
+
+# Large archives
+*.tar.gz
+*.zip
+*.rar
+
+# But keep TSV metadata files (they're small and useful)
+!data/raw/**/*.tsv
+
